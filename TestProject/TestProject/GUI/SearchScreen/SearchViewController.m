@@ -18,6 +18,7 @@
 @property (nonatomic, strong) NSMutableArray* tweets;
 @property (nonatomic, strong) NSString* currentSearchString;
 @property (nonatomic, strong) NSString* nextSearch;
+@property (nonatomic, assign) BOOL isLoading;
 
 @end
 
@@ -96,6 +97,11 @@
     cell.delegate = self;
     cell.tweet = [self.tweets objectAtIndex: indexPath.row];
     
+    if (indexPath.row == [self.tweets count] - 1)
+    {
+        [self loadMore];
+    }
+    
     return cell;
 }
 
@@ -105,6 +111,24 @@
     Tweet* tweet = [TPDBManager createTweetFromDictionary: [cell.tweet dictionaryFromModel] inContext: context];
     [TPDBManager saveContextAsync: context];
     [cell hideUtilityButtonsAnimated: YES];
+}
+
+- (void) loadMore
+{
+    if(self.isLoading)
+        return;
+    self.isLoading = YES;
+    
+    [[TwitterHelper shared] getNextTweetsWithSearchString: self.currentSearchString
+                                                     page: self.nextSearch
+                                             SuccessBlock:^(NSArray *tweets, NSString *nextPage) {
+                                                 [self.tweets addObjectsFromArray: tweets];
+                                                 [self.contentView.tableView reloadData];
+                                                 self.isLoading = NO;
+                                             }
+                                                  failure:^(NSError *error) {
+                                                      self.isLoading = NO;
+                                                  }];
 }
 
 #pragma mark -
@@ -119,6 +143,7 @@
                                              SuccessBlock:^(NSArray *tweets, NSString *nextPage) {
                                                  [self.tweets removeAllObjects];
                                                  [self.tweets addObjectsFromArray: tweets];
+                                                 self.nextSearch = nextPage;
                                                  [self.contentView.tableView reloadData];
                                              }
                                                   failure:^(NSError *error) {
